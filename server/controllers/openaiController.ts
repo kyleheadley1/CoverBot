@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import mammoth from 'mammoth';
+import pdfParse from 'pdf-parse';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -21,33 +21,17 @@ export const queryOpenAI: RequestHandler = async (_req, res, next) => {
     return next(error);
   }
 
-  const role = `You're an expert job search consultant who is helping a client seek a new tech role`;
-  const task = `
-        The user content will be a job description.  
-        1. read through the job description and identify the target audience, key skills and company values
-        2. read through the resume provided below and find relevant experience to the job description
-        3. format a cover letter for the candidate in the following structure:
-
-        Dear [target audience],
-
-        cover letter content
-
-        All the best,
-        Kyle Headley
-        347-740-2661
-        kheadley.dev@gmail.com
-`;
-
   // Read resume from file
   const resumeFilePath = path.join(
     __dirname,
-    '../data/Kyle Headley - Resume.docx'
+    '../data/Kyle Headley - Resume-7.pdf'
   );
   
   let resume: string;
   try {
-    const result = await mammoth.extractRawText({ path: resumeFilePath });
-    resume = result.value;
+    const dataBuffer = fs.readFileSync(resumeFilePath);
+    const result = await pdfParse(dataBuffer);
+    resume = result.text;
   } catch (err) {
     const error: ServerError = {
       log: `Failed to read resume file: ${(err as Error).message}`,
@@ -57,12 +41,23 @@ export const queryOpenAI: RequestHandler = async (_req, res, next) => {
     return next(error);
   }
 
-  const rules = `
-  1. output format should be in markdown formatted left justified, single spaced with 2 lines between paragraphs and after the salutation. Like a letter 
-  2. It should not include ANY additional content than the cover letter itself          
-  3. don't lie or make up any experience to better fit the job description, only use the experience listed and what can be logically inferred from that experience
-  4. don't directly quote anything from the job description.  If you want to tie a link between experience and job requirements, at least change the wording enough so its not a direct pull
-`;
+  const role = `You are Kyle Headley writing a cover letter in first person.`;
+  const task = `Read the job description and resume. Write a cover letter with this structure:
+
+Dear [target audience],
+
+[cover letter content]
+
+All the best,
+Kyle Headley
+347-740-2661
+kheadley.dev@gmail.com`;
+
+  const rules = `Style: Natural, conversational first-person. Varied sentences. Authentic enthusiasm. Specific examples from resume. Avoid AI clichés ("I am excited", "I am passionate"). No buzzwords. Write like a conversation, not a template.
+
+Content: Only use experience from resume. Don't quote job description - paraphrase naturally. Focus on 2-3 key connections with depth. Be specific about company values.
+
+Format: Markdown, left-justified, single-spaced, 2 lines between paragraphs. Only the cover letter - no extra content.`;
 
   const systemPrompt = `
   ${role}
@@ -86,7 +81,7 @@ export const queryOpenAI: RequestHandler = async (_req, res, next) => {
 
   try {
     const response = await client.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
@@ -94,8 +89,8 @@ export const queryOpenAI: RequestHandler = async (_req, res, next) => {
         },
         { role: 'user', content: naturalLanguageQuery },
       ],
-      temperature: 0.3,
-      max_completion_tokens: 500,
+      temperature: 0.7,
+      max_tokens: 600,
     });
 
     const returnedQuery = response.choices[0].message.content
