@@ -4,9 +4,11 @@ import OpenAI from 'openai';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import pdfParse from 'pdf-parse';
+import { createRequire } from 'module';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
 const client = new OpenAI({ apiKey: process.env.OPEN_AI_KEY });
 
@@ -30,7 +32,8 @@ export const queryOpenAI: RequestHandler = async (_req, res, next) => {
   let resume: string;
   try {
     const dataBuffer = fs.readFileSync(resumeFilePath);
-    const result = await pdfParse(dataBuffer);
+    const pdfParser = new pdfParse.PDFParse({ data: dataBuffer });
+    const result = await pdfParser.getText();
     resume = result.text;
   } catch (err) {
     const error: ServerError = {
@@ -54,6 +57,8 @@ Kyle Headley
 kheadley.dev@gmail.com`;
 
   const rules = `Style: Natural, conversational first-person. Varied sentences. Authentic enthusiasm. Specific examples from resume. Avoid AI clichés ("I am excited", "I am passionate"). No buzzwords. Write like a conversation, not a template.
+
+Punctuation: Avoid em dashes (—) and hyphenated sentence structures. These are AI giveaways. Instead, use separate sentences or commas to connect related thoughts. For example, instead of "This experience has honed my ability to communicate effectively—values that I see reflected in Affirm's approach," write "This experience has honed my ability to communicate effectively. I see these same values reflected in Affirm's approach" or "This experience has honed my ability to communicate effectively, and I see these same values reflected in Affirm's approach." Write how people actually write, not how AI writes.
 
 Content: Only use experience from resume. Don't quote job description - paraphrase naturally. Focus on 2-3 key connections with depth. Be specific about company values.
 
