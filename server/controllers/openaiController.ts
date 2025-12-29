@@ -26,7 +26,7 @@ export const queryOpenAI: RequestHandler = async (_req, res, next) => {
   // Read resume from file
   const resumeFilePath = path.join(
     __dirname,
-    '../data/Kyle Headley - Resume-7.pdf'
+    '../data/KH-resume.pdf'
   );
   
   let resume: string;
